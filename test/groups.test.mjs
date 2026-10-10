@@ -79,7 +79,8 @@ test("groupsOf lists the groups a window belongs to", () => {
 
 test("parse round-trips serialize, dock settings included", () => {
   let { state } = withGroup()
-  state = G.setDockMode(state, "autohide")
+  state = G.setDockOption(state, "mode", "autohide")
+  state = G.setDockOption(state, "labels", "title")
   assert.deepEqual(plain(G.parse(G.serialize(state))), plain(state))
 })
 
@@ -100,12 +101,51 @@ test("parse drops malformed groups and members but keeps valid ones", () => {
     ],
   })
   const state = plain(G.parse(text))
-  assert.equal(state.dock.mode, "pinned")
+  assert.deepEqual(state.dock, plain(G.emptyState().dock))
   assert.deepEqual(state.groups, [{ id: "g1", name: "Ok", members: ["0xaa"] }])
 })
 
-test("setDockMode accepts only pinned and autohide", () => {
+test("emptyState carries the dock defaults", () => {
+  assert.deepEqual(plain(G.emptyState().dock),
+    { mode: "pinned", size: "m", labels: "off", badges: true, scope: "monitor" })
+})
+
+test("setDockOption sets each option to a valid value", () => {
   const state = G.emptyState()
-  assert.equal(G.setDockMode(state, "autohide").dock.mode, "autohide")
-  assert.equal(G.setDockMode(state, "floating"), state)
+  assert.equal(G.setDockOption(state, "mode", "autohide").dock.mode, "autohide")
+  assert.equal(G.setDockOption(state, "size", "xl").dock.size, "xl")
+  assert.equal(G.setDockOption(state, "labels", "app").dock.labels, "app")
+  assert.equal(G.setDockOption(state, "badges", false).dock.badges, false)
+  assert.equal(G.setDockOption(state, "scope", "workspace").dock.scope, "workspace")
+})
+
+test("setDockOption keeps the other options and does not mutate the input", () => {
+  const state = G.emptyState()
+  const next = G.setDockOption(state, "size", "s")
+  assert.equal(next.dock.labels, "off")
+  assert.equal(state.dock.size, "m")
+})
+
+test("setDockOption accepts booleans given as strings, as IPC sends them", () => {
+  const state = G.emptyState()
+  assert.equal(G.setDockOption(state, "badges", "false").dock.badges, false)
+  assert.equal(G.setDockOption(G.setDockOption(state, "badges", false), "badges", "true").dock.badges, true)
+})
+
+test("setDockOption ignores an unknown key, an invalid value or no change", () => {
+  const state = G.emptyState()
+  assert.equal(G.setDockOption(state, "position", "left"), state)
+  assert.equal(G.setDockOption(state, "size", "huge"), state)
+  assert.equal(G.setDockOption(state, "badges", "maybe"), state)
+  assert.equal(G.setDockOption(state, "mode", "pinned"), state)
+})
+
+test("parse fills missing dock options from the defaults (a v1 file)", () => {
+  const state = plain(G.parse(JSON.stringify({ dock: { mode: "autohide" }, groups: [] })))
+  assert.deepEqual(state.dock, { mode: "autohide", size: "m", labels: "off", badges: true, scope: "monitor" })
+})
+
+test("parse replaces only the invalid dock options", () => {
+  const text = JSON.stringify({ dock: { mode: "pinned", size: "l", labels: 3, badges: "no", scope: "galaxy" } })
+  assert.deepEqual(plain(G.parse(text)).dock, { mode: "pinned", size: "l", labels: "off", badges: true, scope: "monitor" })
 })
