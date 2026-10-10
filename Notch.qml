@@ -8,14 +8,15 @@ import qs.Commons
 import "lib/dispatch.js" as Dispatch
 import "lib/geometry.js" as Geometry
 
-// The surface that hangs from the bar's bottom border: a to-scale preview of
-// one workspace and a row with an icon per window on it. It is a full-width
-// layer under the bar's exclusive zone; the input mask is the notch alone.
+// The surface that hangs from the bar's bottom border: one fixed-width card
+// per window of a workspace, in a row you can drag. It is a full-width layer
+// under the bar's exclusive zone; the input mask is the notch alone.
 PanelWindow {
   id: root
 
   property bool livePreview: true
-  property int previewWidth: 420
+  property int cardWidth: 220
+  property int visibleCards: 3
   property int revision: 0
 
   property int workspaceId: -1
@@ -31,6 +32,7 @@ PanelWindow {
     root.workspaceId = id
     body.glide = retarget
     root.centerX = x
+    cards.contentX = 0
     if (!retarget) root.refresh()
     root.shown = true
   }
@@ -39,9 +41,8 @@ PanelWindow {
     root.shown = false
   }
 
-  // ---- Data: monitor geometry and live clients from hyprctl
+  // ---- Data: live clients from hyprctl
 
-  property var monitorInfo: null
   property var clients: []
   readonly property var focusedAddress: {
     var _ = root.revision
@@ -49,26 +50,17 @@ PanelWindow {
     return active ? Dispatch.normalizeAddress(active.address) : ""
   }
 
-  readonly property var workspaceClients: {
-    var list = root.clients.filter(function(c) {
-      return c.workspace && c.workspace.id === root.workspaceId && c.mapped !== false && c.hidden !== true
-    })
-    // Least recently focused first, so the paint order matches the stacking.
-    list.sort(function(a, b) { return (b.focusHistoryID || 0) - (a.focusHistoryID || 0) })
-    return list
-  }
+  // Left to right, in screen order.
+  readonly property var workspaceClients: root.clients.filter(function(c) {
+    return c.workspace && c.workspace.id === root.workspaceId && c.mapped !== false && c.hidden !== true
+  }).sort(function(a, b) { return a.at[0] - b.at[0] || a.at[1] - b.at[1] })
 
-  readonly property var rowClients: root.workspaceClients.slice().sort(function(a, b) {
-    return a.at[0] - b.at[0] || a.at[1] - b.at[1]
-  })
-
-  readonly property var preview: Geometry.previewSize(root.monitorInfo, root.previewWidth, Math.round(root.previewWidth * 0.62))
+  readonly property int cardSpacing: Style.space(8)
+  readonly property int captureHeight: Math.round(root.cardWidth * 0.62)
 
   function refresh() {
     clientsProc.running = false
     clientsProc.running = true
-    monitorsProc.running = false
-    monitorsProc.running = true
   }
 
   function toplevelFor(address) {
@@ -85,21 +77,6 @@ PanelWindow {
     stdout: StdioCollector {
       onStreamFinished: {
         try { root.clients = JSON.parse(text) } catch (e) {}
-      }
-    }
-  }
-
-  Process {
-    id: monitorsProc
-    command: ["hyprctl", "-j", "monitors"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          var monitors = JSON.parse(text)
-          for (var i = 0; i < monitors.length; i++) {
-            if (root.screen && monitors[i].name === root.screen.name) root.monitorInfo = monitors[i]
-          }
-        } catch (e) {}
       }
     }
   }
@@ -141,7 +118,7 @@ PanelWindow {
     readonly property int fillet: Style.space(14)
     readonly property int radius: Math.max(Style.space(14), Style.cornerRadius)
     readonly property int pad: Style.space(12)
-    readonly property real contentWidth: Math.max(root.preview.width, appRow.implicitWidth)
+    readonly property real contentWidth: cards.width
 
     property bool glide: false
     // 0 = tucked under the bar, 1 = fully out.
@@ -199,135 +176,149 @@ PanelWindow {
       id: content
       x: body.fillet + body.pad
       y: body.pad
-      width: body.contentWidth
-      spacing: Style.space(10)
+      spacing: Style.space(6)
 
-      Rectangle {
-        id: previewBox
-        width: root.preview.width
-        height: root.preview.height
-        anchors.horizontalCenter: parent.horizontalCenter
-        radius: Style.space(6)
-        color: Util.alpha(Color.foreground, 0.05)
-        border.width: 1
-        border.color: Util.alpha(Color.foreground, 0.1)
+      Flickable {
+        id: cards
+        width: Geometry.viewportWidth(root.workspaceClients.length, root.cardWidth, root.visibleCards, root.cardSpacing)
+        height: cardRow.height
+        contentWidth: cardRow.width
+        contentHeight: cardRow.height
+        flickableDirection: Flickable.HorizontalFlick
+        boundsBehavior: Flickable.StopAtBounds
         clip: true
 
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.focusWorkspace(root.workspaceId)
+        // The vertical wheel scrolls the row sideways.
+        WheelHandler {
+          acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+          onWheel: function(event) {
+            var delta = event.angleDelta.x !== 0 ? event.angleDelta.x : event.angleDelta.y
+            var max = Math.max(0, cards.contentWidth - cards.width)
+            cards.contentX = Math.max(0, Math.min(max, cards.contentX - delta))
+          }
         }
 
-        Text {
-          anchors.centerIn: parent
-          visible: root.workspaceClients.length === 0
-          text: "Empty"
-          color: Util.alpha(Color.popups.text, 0.5)
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
-        }
-
-        Repeater {
-          model: root.workspaceClients
+        Row {
+          id: cardRow
+          spacing: root.cardSpacing
 
           Rectangle {
-            id: tile
-            required property var modelData
-            readonly property var rect: root.monitorInfo
-              ? Geometry.windowRect(modelData, root.monitorInfo, root.preview.factor) : null
-            readonly property string address: Dispatch.normalizeAddress(modelData.address)
-            readonly property var toplevel: root.livePreview && root.shown ? root.toplevelFor(address) : null
-            readonly property bool active: address === root.focusedAddress
+            visible: root.workspaceClients.length === 0
+            width: root.cardWidth
+            height: root.captureHeight + Style.space(28)
+            radius: Style.space(8)
+            color: Util.alpha(Color.foreground, 0.05)
+            border.width: 1
+            border.color: Util.alpha(Color.foreground, 0.1)
 
-            visible: rect !== null
-            x: rect ? rect.x : 0
-            y: rect ? rect.y : 0
-            width: rect ? rect.width : 0
-            height: rect ? rect.height : 0
-            radius: Style.space(3)
-            color: Util.alpha(Color.background, 0.85)
-            border.width: active || tileMouse.containsMouse ? 2 : 1
-            border.color: active || tileMouse.containsMouse ? Color.accent : Util.alpha(Color.foreground, 0.25)
-            clip: true
-
-            ScreencopyView {
-              id: capture
-              anchors.fill: parent
-              anchors.margins: 1
-              captureSource: tile.toplevel && tile.toplevel.wayland ? tile.toplevel.wayland : null
-              live: root.shown
-              paintCursor: false
-            }
-
-            AppIcon {
+            Text {
               anchors.centerIn: parent
-              visible: !capture.hasContent
-              appClass: tile.modelData.class || ""
-              size: Math.max(12, Math.min(32, Math.min(tile.width, tile.height) * 0.45))
+              text: "Empty"
+              color: Util.alpha(Color.popups.text, 0.5)
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
             }
 
             MouseArea {
-              id: tileMouse
               anchors.fill: parent
-              hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onClicked: root.focusWindow(tile.address)
+              onClicked: root.focusWorkspace(root.workspaceId)
+            }
+          }
+
+          Repeater {
+            model: root.workspaceClients
+
+            Rectangle {
+              id: card
+              required property var modelData
+              readonly property string address: Dispatch.normalizeAddress(modelData.address)
+              readonly property var toplevel: root.livePreview && root.shown ? root.toplevelFor(address) : null
+              readonly property bool active: address === root.focusedAddress
+              readonly property var fit: Geometry.fitSize(modelData.size ? modelData.size[0] : 0,
+                modelData.size ? modelData.size[1] : 0, root.cardWidth - Style.space(8), root.captureHeight - Style.space(8))
+
+              width: root.cardWidth
+              height: root.captureHeight + Style.space(28)
+              radius: Style.space(8)
+              color: cardMouse.containsMouse ? Util.alpha(Color.foreground, 0.1) : Util.alpha(Color.foreground, 0.05)
+              border.width: card.active ? 2 : 1
+              border.color: card.active ? Color.accent : Util.alpha(Color.foreground, cardMouse.containsMouse ? 0.3 : 0.12)
+
+              Item {
+                id: captureBox
+                width: parent.width
+                height: root.captureHeight
+
+                ScreencopyView {
+                  id: capture
+                  anchors.centerIn: parent
+                  width: card.fit.width
+                  height: card.fit.height
+                  captureSource: card.toplevel && card.toplevel.wayland ? card.toplevel.wayland : null
+                  live: root.shown
+                  paintCursor: false
+                }
+
+                AppIcon {
+                  anchors.centerIn: parent
+                  visible: !capture.hasContent
+                  appClass: card.modelData.class || ""
+                  size: Math.round(root.captureHeight * 0.4)
+                }
+              }
+
+              Row {
+                anchors.top: captureBox.bottom
+                anchors.left: parent.left
+                anchors.leftMargin: Style.space(8)
+                spacing: Style.space(6)
+
+                AppIcon {
+                  anchors.verticalCenter: parent.verticalCenter
+                  appClass: card.modelData.class || ""
+                  size: Style.space(16)
+                }
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: root.cardWidth - Style.space(38)
+                  height: Style.space(24)
+                  verticalAlignment: Text.AlignVCenter
+                  elide: Text.ElideRight
+                  text: card.modelData.title || card.modelData.class || ""
+                  color: Color.popups.text
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                }
+              }
+
+              MouseArea {
+                id: cardMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.focusWindow(card.address)
+              }
             }
           }
         }
       }
 
-      Row {
-        id: appRow
-        anchors.horizontalCenter: parent.horizontalCenter
-        spacing: Style.space(8)
-        visible: root.rowClients.length > 0
+      // Scroll position, only when the row overflows.
+      Rectangle {
+        visible: cards.contentWidth > cards.width
+        width: cards.width
+        height: Style.space(3)
+        radius: height / 2
+        color: Util.alpha(Color.foreground, 0.08)
 
-        Repeater {
-          model: root.rowClients
-
-          Item {
-            id: slot
-            required property var modelData
-            readonly property string address: Dispatch.normalizeAddress(modelData.address)
-            readonly property int iconSize: Style.space(30)
-
-            width: iconSize + Style.space(8)
-            height: iconSize + Style.space(10)
-
-            Rectangle {
-              anchors.fill: parent
-              radius: Style.space(8)
-              color: slotMouse.containsMouse ? Util.alpha(Color.foreground, 0.1) : "transparent"
-            }
-
-            AppIcon {
-              anchors.horizontalCenter: parent.horizontalCenter
-              y: Style.space(2)
-              appClass: slot.modelData.class || ""
-              size: slot.iconSize
-              scale: slotMouse.containsMouse ? 1.1 : 1
-              Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-            }
-
-            Rectangle {
-              anchors.horizontalCenter: parent.horizontalCenter
-              anchors.bottom: parent.bottom
-              width: Style.space(4)
-              height: width
-              radius: width / 2
-              color: slot.address === root.focusedAddress ? Color.accent : Util.alpha(Color.foreground, 0.35)
-            }
-
-            MouseArea {
-              id: slotMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.focusWindow(slot.address)
-            }
-          }
+        Rectangle {
+          x: cards.visibleArea.xPosition * parent.width
+          width: Math.max(Style.space(16), cards.visibleArea.widthRatio * parent.width)
+          height: parent.height
+          radius: height / 2
+          color: Util.alpha(Color.foreground, 0.4)
         }
       }
     }

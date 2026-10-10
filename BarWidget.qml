@@ -29,7 +29,8 @@ BarWidget {
   readonly property int count: intSetting("count", Banks.BANK_SIZE, 1, Banks.BANK_SIZE)
   readonly property int hoverDelayMs: intSetting("hoverDelayMs", 180, 0, 1000)
   readonly property bool livePreview: boolSetting("livePreview", true)
-  readonly property int previewWidth: intSetting("previewWidth", 420, 240, 800)
+  readonly property int cardWidth: intSetting("cardWidth", 220, 140, 400)
+  readonly property int visibleCards: intSetting("visibleCards", 3, 1, 6)
 
   readonly property var screen: root.QsWindow.window ? root.QsWindow.window.screen : null
   readonly property string monitorName: root.screen ? root.screen.name : ""
@@ -207,7 +208,8 @@ BarWidget {
     id: notch
     screen: root.screen
     livePreview: root.livePreview
-    previewWidth: root.previewWidth
+    cardWidth: root.cardWidth
+    visibleCards: root.visibleCards
     revision: root.revision
     onFocusWorkspace: function(id) { root.dispatch(Dispatch.focusWorkspace(id)) }
     onFocusWindow: function(address) { root.dispatch(Dispatch.focusWindow(address)) }
