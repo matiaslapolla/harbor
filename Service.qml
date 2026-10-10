@@ -40,7 +40,22 @@ Item {
     return list
   }
 
-  readonly property var windows: {
+  // Every live window, special workspaces and not-yet-placed ones included.
+  // Group membership is checked against this, never against `windows`.
+  readonly property var liveAddresses: {
+    var _ = root.revision
+    var values = Hyprland.toplevels.values
+    var list = []
+    for (var i = 0; i < values.length; i++) {
+      var address = Dispatch.normalizeAddress(values[i].address)
+      if (address) list.push(address)
+    }
+    return list
+  }
+
+  // Windows on regular workspaces. A string only notifies when its value
+  // changes, so dock tiles survive events that do not touch them.
+  readonly property string windowsJson: {
     var _ = root.revision
     var values = Hyprland.toplevels.values
     var list = []
@@ -58,8 +73,12 @@ Item {
       })
     }
     list.sort(function(a, b) { return a.workspaceId - b.workspaceId || (a.address < b.address ? -1 : 1) })
-    return list
+    return JSON.stringify(list)
   }
+  readonly property var windows: JSON.parse(root.windowsJson)
+
+  readonly property var groups: root.store.groups
+  readonly property string dockMode: root.store.dock.mode
 
   readonly property string activeAddress: {
     var _ = root.revision
@@ -87,12 +106,7 @@ Item {
   }
 
   function bankLabel(workspaceId) {
-    for (var i = 0; i < root.workspaceList.length; i++) {
-      if (root.workspaceList[i].id !== workspaceId) continue
-      var bank = Banks.bankFor(root.workspaceList, root.workspaceList[i].monitor, 10)
-      for (var j = 0; j < bank.length; j++) if (bank[j].id === workspaceId) return bank[j].label
-    }
-    return String(workspaceId)
+    return Banks.labelOf(root.workspaceList, workspaceId)
   }
 
   // ---- Actions
@@ -163,7 +177,14 @@ Item {
     id: stateFile
     printErrors: false
     onLoaded: {
-      root.store = Groups.parse(text())
+      var raw = text()
+      try {
+        JSON.parse(raw)
+      } catch (e) {
+        // Keep a hand-edited file that no longer parses; the next save would overwrite it.
+        if (raw.trim() !== "") Quickshell.execDetached(["cp", root.statePath, root.statePath + ".invalid"])
+      }
+      root.store = Groups.parse(raw)
       root.loaded = true
       startupPrune.restart()
     }
@@ -178,10 +199,7 @@ Item {
   Timer {
     id: startupPrune
     interval: 2500
-    onTriggered: {
-      if (root.windows.length === 0) return
-      root.apply(Groups.prune(root.store, root.windows.map(function(w) { return w.address })))
-    }
+    onTriggered: if (root.liveAddresses.length > 0) root.apply(Groups.prune(root.store, root.liveAddresses))
   }
 
   Timer {

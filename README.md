@@ -15,7 +15,10 @@ built for setups where each monitor owns its own bank of workspaces
   move it to a workspace on any monitor, without your focus going with it.
 
 Each monitor's bank comes from Hyprland, so a single-monitor setup works too:
-the strip then shows that monitor's workspaces.
+the strip then shows that monitor's workspaces. A bank only holds workspaces
+that exist. Without persistent workspaces (`enable_persistent_workspaces` in
+split-monitor-workspaces), an empty workspace does not show in the strip or
+in the move grid, and the numbers after it shift down.
 
 ## Install
 

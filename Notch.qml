@@ -19,7 +19,6 @@ PanelWindow {
   property int revision: 0
 
   property int workspaceId: -1
-  property string workspaceLabel: ""
   property real centerX: 0
   property bool shown: false
   readonly property bool hovered: notchHover.hovered
@@ -27,10 +26,9 @@ PanelWindow {
   signal focusWorkspace(int id)
   signal focusWindow(string address)
 
-  function present(id, label, x) {
+  function present(id, x) {
     var retarget = root.shown
     root.workspaceId = id
-    root.workspaceLabel = label
     body.glide = retarget
     root.centerX = x
     if (!retarget) root.refresh()
@@ -204,7 +202,6 @@ PanelWindow {
       width: body.contentWidth
       spacing: Style.space(10)
 
-      // Preview
       Rectangle {
         id: previewBox
         width: root.preview.width
@@ -281,7 +278,6 @@ PanelWindow {
         }
       }
 
-      // App row
       Row {
         id: appRow
         anchors.horizontalCenter: parent.horizontalCenter

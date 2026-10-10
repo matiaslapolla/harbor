@@ -26,7 +26,7 @@ BarWidget {
     return fallback
   }
 
-  readonly property int count: intSetting("count", 10, 1, 10)
+  readonly property int count: intSetting("count", Banks.BANK_SIZE, 1, Banks.BANK_SIZE)
   readonly property int hoverDelayMs: intSetting("hoverDelayMs", 180, 0, 1000)
   readonly property bool livePreview: boolSetting("livePreview", true)
   readonly property int previewWidth: intSetting("previewWidth", 420, 240, 800)
@@ -82,17 +82,20 @@ BarWidget {
   property Item hoveredButton: null
   readonly property bool stripHovered: root.hoveredButton !== null
 
+  // The notch spans the whole screen; a floating bar is inset by its side
+  // margins, assumed equal on both sides.
   function buttonCenterX(button) {
     var win = root.QsWindow.window
     if (!button || !win) return 0
-    return win.contentItem.mapFromItem(button, button.width / 2, 0).x
+    var inset = root.screen ? Math.max(0, (root.screen.width - win.width) / 2) : 0
+    return win.contentItem.mapFromItem(button, button.width / 2, 0).x + inset
   }
 
   function showNotch() {
     var slot = null
     for (var i = 0; i < root.bank.length; i++) if (root.bank[i].id === root.hoveredId) slot = root.bank[i]
     if (!slot || !root.hoveredButton) return
-    notch.present(slot.id, slot.label, root.buttonCenterX(root.hoveredButton))
+    notch.present(slot.id, root.buttonCenterX(root.hoveredButton))
   }
 
   function enterButton(button, id) {
@@ -104,8 +107,13 @@ BarWidget {
   }
 
   function leaveButton(button) {
-    if (root.hoveredButton !== button) return
-    root.hoveredButton = null
+    if (root.hoveredButton === button) root.hoveredButton = null
+  }
+
+  // Also fires when the hovered delegate is destroyed (the bank changed under
+  // the pointer), which never reports a hover exit.
+  onHoveredButtonChanged: {
+    if (root.hoveredButton) return
     openTimer.stop()
     closeTimer.restart()
   }
@@ -129,8 +137,6 @@ BarWidget {
       else if (!root.stripHovered) closeTimer.restart()
     }
   }
-
-  // ---- Strip
 
   readonly property real trailingGap: Style.spaceReal(1.5)
 
@@ -162,7 +168,7 @@ BarWidget {
         verticalPadding: 6
         fixedWidth: Style.space(22)
         fixedHeight: root.barSize
-        onPressed: function(mouseButton) { root.dispatch(Dispatch.focusWorkspace(modelData.id)) }
+        onPressed: root.dispatch(Dispatch.focusWorkspace(modelData.id))
         onWheelMoved: function(delta) {
           var next = Banks.neighbour(root.bank, root.focusedId, delta > 0 ? -1 : 1)
           if (next !== -1) root.dispatch(Dispatch.focusWorkspace(next))

@@ -13,7 +13,7 @@ PanelWindow {
   property var service: null
 
   readonly property string monitorName: root.screen ? root.screen.name : ""
-  readonly property bool pinned: !root.service || root.service.store.dock.mode === "pinned"
+  readonly property bool pinned: !root.service || root.service.dockMode === "pinned"
   property bool revealed: false
   readonly property bool showDock: root.pinned || root.revealed || menu.open
 
@@ -24,7 +24,7 @@ PanelWindow {
   readonly property int bottomGap: Style.gapsOut
   readonly property int edgeZone: 4
 
-  readonly property var groups: root.service ? root.service.store.groups : []
+  readonly property var groups: root.service ? root.service.groups : []
   readonly property var looseWindows: {
     if (!root.service) return []
     var service = root.service
@@ -56,10 +56,16 @@ PanelWindow {
     onCleared: menu.close()
   }
 
+  // Runs whenever a revealed dock is left alone, however the pointer got
+  // there: off the dock, off the edge strip, or after the menu closed.
   Timer {
-    id: hideTimer
     interval: 450
-    onTriggered: if (!dockHover.hovered && !menu.open) root.revealed = false
+    running: root.revealed && !dockHover.hovered && !menu.open
+    onTriggered: root.revealed = false
+  }
+
+  function windowCount(n) {
+    return n + (n === 1 ? " window" : " windows")
   }
 
   Item {
@@ -95,13 +101,7 @@ PanelWindow {
 
       Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
-      HoverHandler {
-        id: dockHover
-        onHoveredChanged: {
-          if (hovered) hideTimer.stop()
-          else if (!root.pinned) hideTimer.restart()
-        }
-      }
+      HoverHandler { id: dockHover }
 
       Row {
         id: dockRow
@@ -155,18 +155,15 @@ PanelWindow {
       height: root.edgeZone
 
       HoverHandler {
-        onHoveredChanged: {
-          if (hovered && !root.pinned) {
-            hideTimer.stop()
-            root.revealed = true
-          }
-        }
+        onHoveredChanged: if (hovered && !root.pinned) root.revealed = true
       }
     }
 
     Rectangle {
       id: tooltip
-      property string text: ""
+      // A destroyed tile clears this by itself, so its tip cannot linger.
+      property Item owner: null
+      readonly property string text: owner ? owner.tip : ""
       property real centerX: 0
       visible: text !== "" && !menu.open && root.showDock
       width: Math.min(Style.space(360), tipLabel.implicitWidth + Style.space(16))
@@ -199,13 +196,13 @@ PanelWindow {
     }
   }
 
-  function showTip(tile, text) {
+  function showTip(tile) {
     tooltip.centerX = contentRoot.mapFromItem(tile, tile.width / 2, 0).x
-    tooltip.text = text
+    tooltip.owner = tile
   }
 
-  function hideTip(text) {
-    if (tooltip.text === text) tooltip.text = ""
+  function hideTip(tile) {
+    if (tooltip.owner === tile) tooltip.owner = null
   }
 
   component WindowTile: Item {
@@ -269,7 +266,7 @@ PanelWindow {
       hoverEnabled: true
       acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
       cursorShape: Qt.PointingHandCursor
-      onContainsMouseChanged: containsMouse ? root.showTip(tile, tile.tip) : root.hideTip(tile.tip)
+      onContainsMouseChanged: containsMouse ? root.showTip(tile) : root.hideTip(tile)
       onClicked: function(mouse) {
         if (mouse.button === Qt.LeftButton) root.service.focusWindow(tile.win.address)
         else if (mouse.button === Qt.MiddleButton) root.service.closeWindow(tile.win.address)
@@ -287,7 +284,7 @@ PanelWindow {
       for (var i = 0; i < members.length; i++) if (members[i].address === root.service.activeAddress) return true
       return false
     }
-    readonly property string tip: groupTile.group.name + " · " + members.length + (members.length === 1 ? " window" : " windows")
+    readonly property string tip: groupTile.group.name + " · " + root.windowCount(members.length)
 
     width: groupRow.implicitWidth + Style.space(16)
     height: root.tileSize
@@ -302,19 +299,19 @@ PanelWindow {
       spacing: Style.space(8)
 
       Item {
-        readonly property int shown: Math.min(3, groupTile.members.length)
+        readonly property int shown: Math.min(4, groupTile.members.length)
         width: shown === 0 ? root.iconSize * 0.8 : root.iconSize * 0.8 + (shown - 1) * root.iconSize * 0.42
         height: root.iconSize * 0.8
         anchors.verticalCenter: parent.verticalCenter
 
         Repeater {
-          model: groupTile.members.slice(0, 3)
+          model: groupTile.members.slice(0, 4)
 
           AppIcon {
             required property var modelData
             required property int index
             x: index * root.iconSize * 0.42
-            z: 3 - index
+            z: 4 - index
             appClass: modelData.appClass
             size: Math.round(root.iconSize * 0.8)
           }
@@ -344,7 +341,7 @@ PanelWindow {
         }
 
         Text {
-          text: groupTile.members.length + (groupTile.members.length === 1 ? " window" : " windows")
+          text: root.windowCount(groupTile.members.length)
           color: Util.alpha(Color.popups.text, 0.6)
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
@@ -358,7 +355,7 @@ PanelWindow {
       hoverEnabled: true
       acceptedButtons: Qt.LeftButton | Qt.RightButton
       cursorShape: Qt.PointingHandCursor
-      onContainsMouseChanged: containsMouse ? root.showTip(groupTile, groupTile.tip) : root.hideTip(groupTile.tip)
+      onContainsMouseChanged: containsMouse ? root.showTip(groupTile) : root.hideTip(groupTile)
       onClicked: function(mouse) {
         if (mouse.button === Qt.LeftButton) root.service.focusGroup(groupTile.group.id)
         else root.openMenu("group", groupTile.group.id, groupTile)

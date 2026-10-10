@@ -25,10 +25,10 @@ Rectangle {
   readonly property var otherGroups: {
     if (!root.targetWindow) return []
     var mine = root.memberOf.map(function(g) { return g.id })
-    return root.service.store.groups.filter(function(g) { return mine.indexOf(g.id) === -1 })
+    return root.service.groups.filter(function(g) { return mine.indexOf(g.id) === -1 })
   }
   readonly property int currentWorkspace: root.targetWindow ? root.targetWindow.workspaceId : -1
-  readonly property var banks: root.service ? Banks.banksByMonitor(root.service.workspaceList, root.monitorName, 10) : []
+  readonly property var banks: root.service ? Banks.banksByMonitor(root.service.workspaceList, root.monitorName, Banks.BANK_SIZE) : []
   readonly property int pad: Style.space(12)
   readonly property int cell: Style.space(26)
 
@@ -51,7 +51,9 @@ Rectangle {
     root.close()
   }
 
+  // A blank name keeps the field open in both modes.
   function submitName(text) {
+    if (!text.trim()) return
     if (root.editing === "new") {
       if (!root.service.createGroup(text, root.key)) return
     } else {
@@ -166,7 +168,6 @@ Rectangle {
 
     Separator {}
 
-    // ---- Window: groups
     SectionLabel {
       visible: root.kind === "window"
       text: "Add to group"
@@ -226,7 +227,6 @@ Rectangle {
       }
     }
 
-    // ---- Group
     MenuRow {
       visible: root.kind === "group" && root.editing === ""
       label: "Rename"

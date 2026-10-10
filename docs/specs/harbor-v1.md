@@ -35,7 +35,8 @@ three and treats banks as a first-class concept.
 7. Pure logic (banks, groups, dispatch strings, preview geometry) lives in
    `lib/*.js` with no QML dependencies and is tested with `node --test`. QML
    stays thin.
-8. Settings for the strip and notch live in the widget's `shell.json` entry.
+8. Settings for the strip and notch (`count`, `hoverDelayMs`, `livePreview`,
+   `previewWidth`) live in the widget's `shell.json` entry.
    Dock settings and groups live in
    `~/.local/state/omarchy/settings/harbor.json`.
 
@@ -45,7 +46,9 @@ three and treats banks as a first-class concept.
 
 - Shows the workspace numbers of the bank that belongs to the bar's monitor,
   in id order, up to `count` (default 10).
-- Focused workspace: accent pill. Occupied: full opacity. Empty: dimmed.
+- Focused workspace: a pill in the bar's text colour, not the accent. Glass
+  bars such as True Glass key the accent colour out of the bar.
+  Occupied: full opacity. Empty: dimmed.
 - Click: focus that workspace. Scroll: previous or next workspace in the bank.
 
 ### Notch

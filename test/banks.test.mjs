@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { load, plain } from "./load.mjs"
 
-const { bankFor, labelFor, neighbour, banksByMonitor } = load("banks")
+const { bankFor, labelFor, labelOf, neighbour, banksByMonitor, BANK_SIZE } = load("banks")
 
 const workspaces = [
   { id: 12, monitor: "HDMI-A-1" },
@@ -15,8 +15,8 @@ const workspaces = [
 
 test("bankFor keeps the monitor's positive workspaces in id order", () => {
   assert.deepEqual(plain(bankFor(workspaces, "DP-1", 10)), [
-    { id: 1, number: 1, label: "1" },
-    { id: 2, number: 2, label: "2" },
+    { id: 1, label: "1" },
+    { id: 2, label: "2" },
   ])
 })
 
@@ -53,4 +53,18 @@ test("banksByMonitor puts the given monitor first, then the rest by name", () =>
   const banks = plain(banksByMonitor(workspaces, "HDMI-A-1", 10))
   assert.deepEqual(banks.map((b) => b.monitor), ["HDMI-A-1", "DP-1"])
   assert.deepEqual(banks[0].slots.map((s) => s.id), [11, 12])
+})
+
+test("labelOf finds a workspace's label inside its own bank", () => {
+  assert.equal(labelOf(workspaces, 12), "2")
+  assert.equal(labelOf(workspaces, 1), "1")
+})
+
+test("labelOf falls back to the id for a workspace outside any bank", () => {
+  assert.equal(labelOf(workspaces, 3), "3")
+  assert.equal(labelOf(workspaces, 42), "42")
+})
+
+test("BANK_SIZE matches the number keys", () => {
+  assert.equal(BANK_SIZE, 10)
 })
