@@ -7,12 +7,10 @@
   "license": "MIT",
   "description": "Workspace numbers per monitor bank with a notch that previews each workspace, plus a bottom dock that groups open windows and moves them between workspaces.",
   "kinds": [
-    "bar-widget",
-    "service"
+    "bar-widget"
   ],
   "entryPoints": {
-    "barWidget": "BarWidget.qml",
-    "service": "Service.qml"
+    "barWidget": "BarWidget.qml"
   },
   "barWidget": {
     "displayName": "harbor",
