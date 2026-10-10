@@ -1,9 +1,11 @@
 import QtQuick
 import qs.Commons
+import qs.Ui
 import "lib/banks.js" as Banks
 
-// Context menu for a dock tile. Kind "window" targets a window address,
-// kind "group" a group id. It sits above the dock, centered on the tile.
+// Context menu of the dock. Kind "window" targets a window address, kind
+// "group" a group id, kind "dock" edits the dock itself. It sits above the
+// dock, centered on whatever opened it.
 Rectangle {
   id: root
 
@@ -27,6 +29,7 @@ Rectangle {
     var mine = root.memberOf.map(function(g) { return g.id })
     return root.service.groups.filter(function(g) { return mine.indexOf(g.id) === -1 })
   }
+  readonly property var dock: root.service ? root.service.dock : ({})
   readonly property int currentWorkspace: root.targetWindow ? root.targetWindow.workspaceId : -1
   readonly property var banks: root.service ? Banks.banksByMonitor(root.service.workspaceList, root.monitorName, Banks.BANK_SIZE) : []
   readonly property int pad: Style.space(12)
@@ -100,17 +103,71 @@ Rectangle {
       width: parent.width
       elide: Text.ElideRight
       text: root.targetWindow ? (root.targetWindow.title || root.targetWindow.appClass)
-        : root.targetGroup ? root.targetGroup.name : ""
+        : root.targetGroup ? root.targetGroup.name
+        : root.kind === "dock" ? "Dock" : ""
       color: Color.popups.text
       font.family: Style.font.family
       font.pixelSize: Style.font.subtitle
       font.bold: true
     }
 
-    SectionLabel { text: root.kind === "group" ? "Move all to" : "Move to" }
+    // Dock settings apply at once and leave the menu open.
+    Column {
+      visible: root.kind === "dock"
+      width: parent.width
+      spacing: Style.space(10)
+
+      SettingRow {
+        label: "Size"
+        ButtonGroup {
+          options: [{ value: "s", label: "S" }, { value: "m", label: "M" }, { value: "l", label: "L" }, { value: "xl", label: "XL" }]
+          value: root.dock.size
+          onChanged: function(value) { root.service.setDockOption("size", value) }
+        }
+      }
+
+      SettingRow {
+        label: "Labels"
+        ButtonGroup {
+          options: [{ value: "off", label: "Off" }, { value: "app", label: "App" }, { value: "title", label: "Title" }]
+          value: root.dock.labels
+          onChanged: function(value) { root.service.setDockOption("labels", value) }
+        }
+      }
+
+      SettingRow {
+        label: "Show"
+        ButtonGroup {
+          options: [{ value: "monitor", label: "Monitor" }, { value: "workspace", label: "Workspace" }]
+          value: root.dock.scope
+          onChanged: function(value) { root.service.setDockOption("scope", value) }
+        }
+      }
+
+      SettingRow {
+        label: "Workspace badges"
+        ToggleSwitch {
+          checked: root.dock.badges
+          onToggled: root.service.setDockOption("badges", !root.dock.badges)
+        }
+      }
+
+      SettingRow {
+        label: "Auto-hide"
+        ToggleSwitch {
+          checked: root.dock.mode === "autohide"
+          onToggled: root.service.setDockOption("mode", root.dock.mode === "autohide" ? "pinned" : "autohide")
+        }
+      }
+    }
+
+    SectionLabel {
+      visible: root.kind !== "dock"
+      text: root.kind === "group" ? "Move all to" : "Move to"
+    }
 
     Repeater {
-      model: root.banks
+      model: root.kind !== "dock" ? root.banks : []
 
       Column {
         id: bankColumn
@@ -166,7 +223,7 @@ Rectangle {
       }
     }
 
-    Separator {}
+    Separator { visible: root.kind !== "dock" }
 
     SectionLabel {
       visible: root.kind === "window"
@@ -241,6 +298,32 @@ Rectangle {
         root.service.deleteGroup(root.key)
         root.close()
       }
+    }
+  }
+
+  component SettingRow: Item {
+    id: settingRow
+    property string label: ""
+    default property alias control: controlSlot.data
+
+    width: parent ? parent.width : 0
+    height: Math.max(settingLabel.implicitHeight, controlSlot.childrenRect.height)
+
+    Text {
+      id: settingLabel
+      anchors.verticalCenter: parent.verticalCenter
+      text: settingRow.label
+      color: Color.popups.text
+      font.family: Style.font.family
+      font.pixelSize: Style.font.body
+    }
+
+    Item {
+      id: controlSlot
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      width: childrenRect.width
+      height: childrenRect.height
     }
   }
 

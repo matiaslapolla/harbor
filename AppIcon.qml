@@ -10,10 +10,13 @@ Item {
   property string appClass: ""
   property int size: 24
 
+  readonly property var entry: root.appClass ? DesktopEntries.heuristicLookup(String(root.appClass).trim()) : null
+  readonly property string appName: root.entry && root.entry.name ? root.entry.name : root.appClass
+
   readonly property string source: {
     var cls = String(root.appClass || "").trim()
     if (!cls) return ""
-    var entry = DesktopEntries.heuristicLookup(cls)
+    var entry = root.entry
     var icon = String(entry && entry.icon ? entry.icon : "")
     if (icon.indexOf("file://") === 0 || icon.indexOf("image://") === 0) return icon
     if (icon.charAt(0) === "/") return Util.fileUrl(icon)

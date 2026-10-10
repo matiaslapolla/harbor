@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
+import "lib/groups.js" as Groups
 
 // The dock for one screen: groups on the left, then the windows on this
 // monitor that belong to no group. The window is taller than the dock so
@@ -13,23 +14,37 @@ PanelWindow {
   property var service: null
 
   readonly property string monitorName: root.screen ? root.screen.name : ""
-  readonly property bool pinned: !root.service || root.service.dockMode === "pinned"
+  readonly property var dock: root.service ? root.service.dock : Groups.defaultDock()
+  readonly property bool pinned: root.dock.mode === "pinned"
   property bool revealed: false
   readonly property bool showDock: root.pinned || root.revealed || menu.open
 
-  readonly property int iconSize: Style.space(32)
+  readonly property int iconSize: Style.space(({ s: 24, m: 32, l: 40, xl: 48 })[root.dock.size] || 32)
   readonly property int tileSize: iconSize + Style.space(14)
+  readonly property bool labeled: root.dock.labels !== "off"
+  readonly property int tileHeight: tileSize + (root.labeled ? Style.space(16) : 0)
+  readonly property int windowTileWidth: root.dock.labels === "title" ? Math.max(Math.round(tileSize * 2.4), Style.space(110))
+    : root.labeled ? Math.max(Math.round(tileSize * 1.7), Style.space(72))
+    : tileSize
   readonly property int dockPad: Style.space(6)
-  readonly property int dockHeight: tileSize + dockPad * 2
+  readonly property int dockHeight: tileHeight + dockPad * 2
   readonly property int bottomGap: Style.gapsOut
   readonly property int edgeZone: 4
 
   readonly property var groups: root.service ? root.service.groups : []
+  readonly property int activeWorkspaceId: {
+    var _ = root.service ? root.service.revision : 0
+    var monitor = root.screen ? Hyprland.monitorFor(root.screen) : null
+    return monitor && monitor.activeWorkspace ? monitor.activeWorkspace.id : -1
+  }
+
   readonly property var looseWindows: {
     if (!root.service) return []
     var service = root.service
+    var onlyActive = root.dock.scope === "workspace"
     return service.windows.filter(function(w) {
       return w.monitor === root.monitorName && service.groupsOf(w.address).length === 0
+        && (!onlyActive || w.workspaceId === root.activeWorkspaceId)
     })
   }
 
@@ -103,6 +118,12 @@ PanelWindow {
 
       HoverHandler { id: dockHover }
 
+      MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        onClicked: root.openMenu("dock", "", dockBox)
+      }
+
       Row {
         id: dockRow
         anchors.centerIn: parent
@@ -136,7 +157,7 @@ PanelWindow {
 
         Text {
           visible: root.groups.length === 0 && root.looseWindows.length === 0
-          height: root.tileSize
+          height: root.tileHeight
           verticalAlignment: Text.AlignVCenter
           leftPadding: Style.space(10)
           rightPadding: Style.space(10)
@@ -144,6 +165,38 @@ PanelWindow {
           color: Util.alpha(Color.popups.text, 0.5)
           font.family: Style.font.family
           font.pixelSize: Style.font.body
+        }
+
+        Item {
+          id: settingsTile
+          width: Math.round(root.iconSize * 0.7)
+          height: root.tileHeight
+
+          Rectangle {
+            anchors.centerIn: parent
+            width: parent.width
+            height: width
+            radius: Style.space(8)
+            color: settingsMouse.containsMouse || (menu.open && menu.kind === "dock")
+              ? Util.alpha(Color.foreground, 0.12) : "transparent"
+          }
+
+          Text {
+            anchors.centerIn: parent
+            text: "⋯"
+            color: Util.alpha(Color.popups.text, settingsMouse.containsMouse ? 0.9 : 0.5)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.heading
+          }
+
+          MouseArea {
+            id: settingsMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openMenu("dock", "", settingsTile)
+          }
         }
       }
     }
@@ -211,8 +264,8 @@ PanelWindow {
     readonly property bool active: root.service && tile.win.address === root.service.activeAddress
     readonly property string tip: tile.win.title || tile.win.appClass
 
-    width: root.tileSize
-    height: root.tileSize
+    width: root.windowTileWidth
+    height: root.tileHeight
 
     Rectangle {
       anchors.fill: parent
@@ -221,18 +274,34 @@ PanelWindow {
     }
 
     AppIcon {
-      anchors.centerIn: parent
-      anchors.verticalCenterOffset: -Style.space(2)
+      id: tileIcon
+      anchors.horizontalCenter: parent.horizontalCenter
+      y: Math.round((root.tileSize - root.iconSize) / 2) - Style.space(2)
       appClass: tile.win.appClass
       size: root.iconSize
       scale: tileMouse.containsMouse ? 1.08 : 1
       Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
     }
 
+    Text {
+      visible: root.labeled
+      anchors.horizontalCenter: parent.horizontalCenter
+      y: root.tileSize - Style.space(4)
+      width: parent.width - Style.space(6)
+      horizontalAlignment: Text.AlignHCenter
+      elide: Text.ElideRight
+      text: root.dock.labels === "title" ? tile.tip : tileIcon.appName
+      color: Util.alpha(Color.popups.text, 0.85)
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+    }
+
     Rectangle {
-      anchors.right: parent.right
+      visible: root.dock.badges
+      anchors.left: tileIcon.right
+      anchors.leftMargin: -width * 0.6
       anchors.top: parent.top
-      anchors.margins: Style.space(2)
+      anchors.topMargin: Style.space(2)
       width: Math.max(height, badgeLabel.implicitWidth + Style.space(6))
       height: Style.space(15)
       radius: height / 2
@@ -287,7 +356,7 @@ PanelWindow {
     readonly property string tip: groupTile.group.name + " · " + root.windowCount(members.length)
 
     width: groupRow.implicitWidth + Style.space(16)
-    height: root.tileSize
+    height: root.tileHeight
     radius: Style.space(10)
     color: groupMouse.containsMouse ? Util.alpha(Color.foreground, 0.12) : Util.alpha(Color.foreground, 0.06)
     border.width: 1

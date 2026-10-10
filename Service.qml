@@ -78,7 +78,7 @@ Item {
   readonly property var windows: JSON.parse(root.windowsJson)
 
   readonly property var groups: root.store.groups
-  readonly property string dockMode: root.store.dock.mode
+  readonly property var dock: root.store.dock
 
   readonly property string activeAddress: {
     var _ = root.revision
@@ -154,7 +154,7 @@ Item {
   function removeFromGroup(id, address) { root.apply(Groups.removeMember(root.store, id, Dispatch.normalizeAddress(address))) }
   function renameGroup(id, name) { root.apply(Groups.renameGroup(root.store, id, name)) }
   function deleteGroup(id) { root.apply(Groups.deleteGroup(root.store, id)) }
-  function setDockMode(mode) { root.apply(Groups.setDockMode(root.store, mode)) }
+  function setDockOption(key, value) { root.apply(Groups.setDockOption(root.store, key, value)) }
   function groupsOf(address) { return Groups.groupsOf(root.store, address) }
 
   function forgetWindow(address) {
@@ -231,6 +231,6 @@ Item {
     function deleteGroup(id: string): void { root.deleteGroup(id) }
     function moveWindow(address: string, workspace: int): void { root.moveWindow(address, workspace) }
     function moveGroup(id: string, workspace: int): void { root.moveGroup(id, workspace) }
-    function setDockMode(mode: string): void { root.setDockMode(mode) }
+    function setDock(key: string, value: string): void { root.setDockOption(key, value) }
   }
 }
