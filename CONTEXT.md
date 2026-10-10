@@ -12,12 +12,14 @@ shown as `1`…`9`, `0` for the tenth (matching the `SUPER + <n>` keys). Workspa
 monitor.
 
 **Notch** — the surface that slides down from the bottom border of the top
-bar while the pointer rests on a strip button. It shows the **preview** (a
-to-scale live picture of that workspace) and the **app row** (one icon per
-window on that workspace).
+bar while the pointer rests on a strip button. It shows the **card row**:
+one fixed-width **card** per window on that workspace (live capture, icon,
+title), scrolled sideways by dragging.
 
 **Dock** — the surface at the bottom edge of each monitor. It lists the
-windows on that monitor and every group.
+windows on that monitor (or only its active workspace, by **scope**) and
+every group. Its **dock options** are edited from the dock's own settings
+menu.
 
 **Group** — a named set of windows the user builds by hand. A group lives
 until the user deletes it, even when it has no members. Members are window
