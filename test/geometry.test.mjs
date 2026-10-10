@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { load, plain } from "./load.mjs"
 
-const { fitSize, viewportWidth } = load("geometry")
+const { fitSize, viewportWidth, windowTileWidth } = load("geometry")
 
 test("fitSize fits a wide window by width", () => {
   assert.deepEqual(plain(fitSize(3440, 1440, 220, 136)), { width: 220, height: 92 })
@@ -27,4 +27,27 @@ test("viewportWidth fits every card when there are fewer than visible", () => {
 
 test("viewportWidth caps at the visible cards", () => {
   assert.equal(viewportWidth(7, 220, 3, 8), 676)
+})
+
+test("viewportWidth never exceeds the room on screen", () => {
+  assert.equal(viewportWidth(6, 400, 6, 8, 1800), 1800)
+  assert.equal(viewportWidth(2, 220, 3, 8, 1800), 448)
+})
+
+test("viewportWidth keeps at least one card even on a tiny screen", () => {
+  assert.equal(viewportWidth(3, 220, 3, 8, 100), 220)
+})
+
+test("windowTileWidth is square without labels", () => {
+  assert.equal(windowTileWidth("off", 46, 1), 46)
+})
+
+test("windowTileWidth widens for app names and more for titles", () => {
+  assert.equal(windowTileWidth("app", 46, 1), 78)
+  assert.equal(windowTileWidth("title", 46, 1), 110)
+  assert.equal(windowTileWidth("title", 62, 1), 149)
+})
+
+test("windowTileWidth minimums follow the UI scale", () => {
+  assert.equal(windowTileWidth("app", 20, 1.5), 108)
 })

@@ -16,8 +16,7 @@ Item {
   readonly property string source: {
     var cls = String(root.appClass || "").trim()
     if (!cls) return ""
-    var entry = root.entry
-    var icon = String(entry && entry.icon ? entry.icon : "")
+    var icon = String(root.entry && root.entry.icon ? root.entry.icon : "")
     if (icon.indexOf("file://") === 0 || icon.indexOf("image://") === 0) return icon
     if (icon.charAt(0) === "/") return Util.fileUrl(icon)
     var names = [icon, cls, cls.toLowerCase()]

@@ -138,6 +138,13 @@ test("setDockOption ignores an unknown key, an invalid value or no change", () =
   assert.equal(G.setDockOption(state, "size", "huge"), state)
   assert.equal(G.setDockOption(state, "badges", "maybe"), state)
   assert.equal(G.setDockOption(state, "mode", "pinned"), state)
+  assert.equal(G.setDockOption(state, "mode", "floating"), state)
+  assert.equal(G.setDockOption(state, "labels", "both"), state)
+  assert.equal(G.setDockOption(state, "scope", "everywhere"), state)
+})
+
+test("dockIconSize maps each size to icon pixels", () => {
+  assert.deepEqual(["s", "m", "l", "xl"].map(G.dockIconSize), [24, 32, 40, 48])
 })
 
 test("parse fills missing dock options from the defaults (a v1 file)", () => {
@@ -146,6 +153,6 @@ test("parse fills missing dock options from the defaults (a v1 file)", () => {
 })
 
 test("parse replaces only the invalid dock options", () => {
-  const text = JSON.stringify({ dock: { mode: "pinned", size: "l", labels: 3, badges: "no", scope: "galaxy" } })
+  const text = JSON.stringify({ dock: { mode: "sideways", size: "l", labels: 3, badges: "no", scope: "galaxy" } })
   assert.deepEqual(plain(G.parse(text)).dock, { mode: "pinned", size: "l", labels: "off", badges: true, scope: "monitor" })
 })

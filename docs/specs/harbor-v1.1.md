@@ -20,8 +20,8 @@ two disagree, this one wins. Terms are in [CONTEXT.md](../../CONTEXT.md).
 2. The notch shows at most `visibleCards` cards at a time. Any extra cards are
    reached by dragging or with the mouse wheel.
 3. The dock settings live in a third kind of dock menu, `dock`. It opens with
-   a right-click on the dock background or a left-click on a `⋯` tile at the
-   end of the dock. Changes apply at once, and the menu stays open.
+   a right-click on the dock background or a click on a `⋯` tile at the end
+   of the dock. Changes apply at once, and the menu stays open.
 4. All dock options sit together under `dock` in `harbor.json`, and one IPC
    method sets any of them. `setDockMode` is removed.
 5. The settings controls are the shell's own `ButtonGroup` and `ToggleSwitch`.
@@ -32,14 +32,15 @@ two disagree, this one wins. Terms are in [CONTEXT.md](../../CONTEXT.md).
 
 - Card: a fixed width `cardWidth` (default 220). The capture area is
   `cardWidth × round(cardWidth × 0.62)`. The live capture is fitted inside
-  that area with the window's own aspect ratio, and the app icon stands in
-  when there is no capture. Under the capture are the app icon and the
-  window title, elided.
+  that area, with a small inset and the window's own aspect ratio, and the
+  app icon stands in when there is no capture. Under the capture are the app
+  icon and the window title, elided.
 - Cards go left to right in the windows' screen order. The focused window's
   card has an accent border.
-- The viewport is `min(windows, visibleCards)` cards wide (default 3). A
-  horizontal drag scrolls it, and so does the vertical mouse wheel. A thin
-  indicator under the row shows the position when the row overflows.
+- The viewport is `min(windows, visibleCards)` cards wide (default 3), and
+  never wider than the screen. A horizontal drag scrolls it, and so does the
+  vertical mouse wheel. A thin indicator under the row shows the position
+  when the row overflows.
 - A click on a card that does not turn into a drag focuses that window.
 - Retargeting to another workspace scrolls back to the first card.
 - An empty workspace shows one card-sized placeholder that reads "Empty". A
@@ -52,12 +53,12 @@ two disagree, this one wins. Terms are in [CONTEXT.md](../../CONTEXT.md).
 | Size | S, M, L, XL (icons 24, 32, 40, 48 px before UI scale) | M |
 | Labels | Off, App (desktop-entry name), Title (window title) | Off |
 | Workspace badges | on, off | on |
-| Show | This monitor, This workspace (the monitor's active one) | This monitor |
+| Show | Monitor (every window on it), Workspace (its active one) | Monitor |
 | Auto-hide | on, off | off |
 
 - With labels on, each window tile gets a fixed width and a one-line label
   under its icon. Group tiles keep their own name label.
-- "This workspace" limits the loose windows. Groups always show.
+- "Workspace" limits the loose windows. Groups always show.
 - IPC: `setDock <key> <value>` with key `mode`, `size`, `labels`, `badges` or
   `scope`. An invalid key or value changes nothing.
 

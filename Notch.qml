@@ -32,6 +32,7 @@ PanelWindow {
     root.workspaceId = id
     body.glide = retarget
     root.centerX = x
+    cards.cancelFlick()
     cards.contentX = 0
     if (!retarget) root.refresh()
     root.shown = true
@@ -50,13 +51,13 @@ PanelWindow {
     return active ? Dispatch.normalizeAddress(active.address) : ""
   }
 
-  // Left to right, in screen order.
   readonly property var workspaceClients: root.clients.filter(function(c) {
     return c.workspace && c.workspace.id === root.workspaceId && c.mapped !== false && c.hidden !== true
   }).sort(function(a, b) { return a.at[0] - b.at[0] || a.at[1] - b.at[1] })
 
   readonly property int cardSpacing: Style.space(8)
   readonly property int captureHeight: Math.round(root.cardWidth * 0.62)
+  readonly property int cardHeight: root.captureHeight + Style.space(28)
 
   function refresh() {
     clientsProc.running = false
@@ -180,7 +181,8 @@ PanelWindow {
 
       Flickable {
         id: cards
-        width: Geometry.viewportWidth(root.workspaceClients.length, root.cardWidth, root.visibleCards, root.cardSpacing)
+        width: Geometry.viewportWidth(root.workspaceClients.length, root.cardWidth, root.visibleCards, root.cardSpacing,
+          root.width - (body.fillet + body.pad) * 2)
         height: cardRow.height
         contentWidth: cardRow.width
         contentHeight: cardRow.height
@@ -202,14 +204,8 @@ PanelWindow {
           id: cardRow
           spacing: root.cardSpacing
 
-          Rectangle {
+          CardFrame {
             visible: root.workspaceClients.length === 0
-            width: root.cardWidth
-            height: root.captureHeight + Style.space(28)
-            radius: Style.space(8)
-            color: Util.alpha(Color.foreground, 0.05)
-            border.width: 1
-            border.color: Util.alpha(Color.foreground, 0.1)
 
             Text {
               anchors.centerIn: parent
@@ -229,21 +225,16 @@ PanelWindow {
           Repeater {
             model: root.workspaceClients
 
-            Rectangle {
+            CardFrame {
               id: card
               required property var modelData
               readonly property string address: Dispatch.normalizeAddress(modelData.address)
               readonly property var toplevel: root.livePreview && root.shown ? root.toplevelFor(address) : null
-              readonly property bool active: address === root.focusedAddress
               readonly property var fit: Geometry.fitSize(modelData.size ? modelData.size[0] : 0,
                 modelData.size ? modelData.size[1] : 0, root.cardWidth - Style.space(8), root.captureHeight - Style.space(8))
 
-              width: root.cardWidth
-              height: root.captureHeight + Style.space(28)
-              radius: Style.space(8)
-              color: cardMouse.containsMouse ? Util.alpha(Color.foreground, 0.1) : Util.alpha(Color.foreground, 0.05)
-              border.width: card.active ? 2 : 1
-              border.color: card.active ? Color.accent : Util.alpha(Color.foreground, cardMouse.containsMouse ? 0.3 : 0.12)
+              hot: cardMouse.containsMouse
+              active: card.address === root.focusedAddress
 
               Item {
                 id: captureBox
@@ -305,7 +296,6 @@ PanelWindow {
         }
       }
 
-      // Scroll position, only when the row overflows.
       Rectangle {
         visible: cards.contentWidth > cards.width
         width: cards.width
@@ -322,5 +312,17 @@ PanelWindow {
         }
       }
     }
+  }
+
+  component CardFrame: Rectangle {
+    property bool hot: false
+    property bool active: false
+
+    width: root.cardWidth
+    height: root.cardHeight
+    radius: Style.space(8)
+    color: Util.alpha(Color.foreground, hot ? 0.1 : 0.05)
+    border.width: active ? 2 : 1
+    border.color: active ? Color.accent : Util.alpha(Color.foreground, hot ? 0.3 : 0.1)
   }
 }

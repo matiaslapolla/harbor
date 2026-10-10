@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
+import "lib/geometry.js" as Geometry
 import "lib/groups.js" as Groups
 
 // The dock for one screen: groups on the left, then the windows on this
@@ -19,13 +20,11 @@ PanelWindow {
   property bool revealed: false
   readonly property bool showDock: root.pinned || root.revealed || menu.open
 
-  readonly property int iconSize: Style.space(({ s: 24, m: 32, l: 40, xl: 48 })[root.dock.size] || 32)
+  readonly property int iconSize: Style.space(Groups.dockIconSize(root.dock.size))
   readonly property int tileSize: iconSize + Style.space(14)
   readonly property bool labeled: root.dock.labels !== "off"
   readonly property int tileHeight: tileSize + (root.labeled ? Style.space(16) : 0)
-  readonly property int windowTileWidth: root.dock.labels === "title" ? Math.max(Math.round(tileSize * 2.4), Style.space(110))
-    : root.labeled ? Math.max(Math.round(tileSize * 1.7), Style.space(72))
-    : tileSize
+  readonly property int windowTileWidth: Geometry.windowTileWidth(root.dock.labels, root.tileSize, Style.spacing.scale)
   readonly property int dockPad: Style.space(6)
   readonly property int dockHeight: tileHeight + dockPad * 2
   readonly property int bottomGap: Style.gapsOut
@@ -60,8 +59,11 @@ PanelWindow {
   mask: Region { item: menu.open ? contentRoot : (root.showDock ? dockBox : edgeStrip) }
 
   function openMenu(kind, key, tile) {
-    var p = contentRoot.mapFromItem(tile, tile.width / 2, 0)
-    menu.anchorX = p.x
+    // The settings menu stays open while the dock resizes, so it tracks the ⋯ tile.
+    if (kind === "dock") menu.anchorX = Qt.binding(function() {
+      return dockBox.x + dockBox.width - root.dockPad - settingsTile.width / 2
+    })
+    else menu.anchorX = contentRoot.mapFromItem(tile, tile.width / 2, 0).x
     menu.show(kind, key)
   }
 
