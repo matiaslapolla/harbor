@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "id": "matiaslapolla.harbor",
+  "name": "harbor",
+  "version": "0.1.0",
+  "author": "Matias Lapolla",
+  "license": "MIT",
+  "description": "Workspace numbers per monitor bank with a notch that previews each workspace, plus a bottom dock that groups open windows and moves them between workspaces.",
+  "kinds": [
+    "bar-widget",
+    "service"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "service": "Service.qml"
+  },
+  "barWidget": {
+    "displayName": "harbor",
+    "description": "Workspace numbers of this monitor's bank. Rest the pointer on one to drop the notch: a live preview and the apps on that workspace.",
+    "category": "Compositor",
+    "allowMultiple": false,
+    "defaultSection": "left",
+    "defaults": {
+      "count": 10,
+      "hoverDelayMs": 180,
+      "livePreview": true,
+      "previewWidth": 420
+    },
+    "schema": [
+      {
+        "key": "count",
+        "type": "integer",
+        "label": "Workspaces per monitor",
+        "min": 1,
+        "max": 10,
+        "step": 1,
+        "defaultValue": 10
+      },
+      {
+        "key": "hoverDelayMs",
+        "type": "integer",
+        "label": "Hover delay (ms)",
+        "min": 0,
+        "max": 1000,
+        "step": 20,
+        "defaultValue": 180,
+        "description": "How long the pointer rests on a number before the notch drops."
+      },
+      {
+        "key": "livePreview",
+        "type": "boolean",
+        "label": "Live window captures",
+        "defaultValue": true,
+        "description": "Off draws app icons in the preview instead of window contents."
+      },
+      {
+        "key": "previewWidth",
+        "type": "integer",
+        "label": "Preview width (px)",
+        "min": 240,
+        "max": 800,
+        "step": 20,
+        "defaultValue": 420
+      }
+    ]
+  }
+}
