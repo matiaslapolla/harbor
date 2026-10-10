@@ -10,8 +10,7 @@ BarWidget.qml      strip; owns one Notch per bar instance
 Notch.qml          layer-shell surface under the bar: preview + app row
 Service.qml        one Dock per screen (Variants over Quickshell.screens), groups store, IPC
 Dock.qml           dock surface for one screen
-DockMenu.qml       window/group context menu (PopupWindow + focus grab)
-WorkspaceGrid.qml  workspace-number grid used by the menu
+DockMenu.qml       window/group context menu, drawn inside the dock window
 AppIcon.qml        desktop-entry icon with a monogram fallback
 lib/banks.js       bank membership, numbering, labels
 lib/groups.js      immutable group operations + parse/serialize
