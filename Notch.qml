@@ -62,6 +62,26 @@ PanelWindow {
   function refresh() {
     clientsProc.running = false
     clientsProc.running = true
+    monitorsProc.running = false
+    monitorsProc.running = true
+  }
+
+  // Monitor of this notch, to tell which windows are on screen.
+  property var monitorInfo: null
+
+  // Last frame seen of each window, shown when there is no live capture:
+  // Hyprland renders nothing off screen, and a scrolling layout parks windows there.
+  // Values are grabToImage results, kept alive so their urls stay valid.
+  property var snapshots: ({})
+
+  function storeSnapshot(address, result) {
+    var next = {}
+    for (var i = 0; i < root.clients.length; i++) {
+      var known = Dispatch.normalizeAddress(root.clients[i].address)
+      if (root.snapshots[known]) next[known] = root.snapshots[known]
+    }
+    next[address] = result
+    root.snapshots = next
   }
 
   function toplevelFor(address) {
@@ -78,6 +98,21 @@ PanelWindow {
     stdout: StdioCollector {
       onStreamFinished: {
         try { root.clients = JSON.parse(text) } catch (e) {}
+      }
+    }
+  }
+
+  Process {
+    id: monitorsProc
+    command: ["hyprctl", "-j", "monitors"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          var monitors = JSON.parse(text)
+          for (var i = 0; i < monitors.length; i++) {
+            if (root.screen && monitors[i].name === root.screen.name) root.monitorInfo = monitors[i]
+          }
+        } catch (e) {}
       }
     }
   }
@@ -230,6 +265,8 @@ PanelWindow {
               required property var modelData
               readonly property string address: Dispatch.normalizeAddress(modelData.address)
               readonly property var toplevel: root.livePreview && root.shown ? root.toplevelFor(address) : null
+              readonly property bool offscreen: !Geometry.onMonitor(modelData, root.monitorInfo)
+              readonly property var snapshot: root.snapshots[address] || null
               readonly property var fit: Geometry.fitSize(modelData.size ? modelData.size[0] : 0,
                 modelData.size ? modelData.size[1] : 0, root.cardWidth - Style.space(8), root.captureHeight - Style.space(8))
 
@@ -251,11 +288,48 @@ PanelWindow {
                   paintCursor: false
                 }
 
+                Timer {
+                  interval: 1000
+                  repeat: true
+                  triggeredOnStart: true
+                  running: root.shown && capture.hasContent && !card.offscreen
+                  onTriggered: capture.grabToImage(function(result) { root.storeSnapshot(card.address, result) })
+                }
+
+                Image {
+                  anchors.centerIn: parent
+                  width: card.fit.width
+                  height: card.fit.height
+                  visible: !capture.hasContent && card.snapshot !== null
+                  source: card.snapshot ? card.snapshot.url : ""
+                  opacity: 0.55
+                }
+
                 AppIcon {
                   anchors.centerIn: parent
-                  visible: !capture.hasContent
+                  visible: !capture.hasContent && card.snapshot === null
                   appClass: card.modelData.class || ""
                   size: Math.round(root.captureHeight * 0.4)
+                }
+
+                Rectangle {
+                  visible: card.offscreen
+                  anchors.left: parent.left
+                  anchors.top: parent.top
+                  anchors.margins: Style.space(6)
+                  width: offLabel.implicitWidth + Style.space(10)
+                  height: offLabel.implicitHeight + Style.space(4)
+                  radius: height / 2
+                  color: Util.alpha(Color.background, 0.85)
+
+                  Text {
+                    id: offLabel
+                    anchors.centerIn: parent
+                    text: "Off screen"
+                    color: Util.alpha(Color.popups.text, 0.8)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
+                  }
                 }
               }
 

@@ -110,6 +110,13 @@ omarchy-shell harbor deleteGroup g1
 
 Workspace arguments are Hyprland workspace ids (12 is `2` on the second bank).
 
+## Windows off screen
+
+With a scrolling layout, Hyprland parks windows outside the monitor and does
+not render them, so they give no live capture. Their card reads "Off screen"
+and shows, dimmed, the last frame the notch saw of them. A window the notch
+has never seen on screen shows its icon.
+
 ## Glass bars
 
 Do not use the theme's accent colour on the bar if you run a glass bar such as
